@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>US City Time Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d0d14; --surface: #14141e; --surface2: #1e1e2c;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.14);
+    --accent: #4fffb0; --accent-dim: rgba(79,255,176,0.12);
+    --red: #ff6b6b; --blue: #6eb5ff; --yellow: #ffd166;
+    --text: #eeeef5; --muted: #666678;
+    --mono: 'Space Mono', monospace; --sans: 'Syne', sans-serif;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 3rem 1rem 5rem; }
+  .glow { position: fixed; top: -200px; left: 50%; transform: translateX(-50%); width: 700px; height: 500px; background: radial-gradient(ellipse, rgba(79,255,176,0.05) 0%, transparent 70%); pointer-events: none; }
+  .container { width: 100%; max-width: 620px; position: relative; z-index: 1; }
+  header { text-align: center; margin-bottom: 3rem; }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 10px; color: var(--accent); letter-spacing: .18em; border: 1px solid rgba(79,255,176,0.25); padding: 4px 14px; border-radius: 2px; margin-bottom: 1.25rem; }
+  h1 { font-size: clamp(2.2rem, 7vw, 3.8rem); font-weight: 800; line-height: 1; letter-spacing: -.025em; margin-bottom: .6rem; }
+  h1 em { color: var(--accent); font-style: normal; }
+  .sub { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: .06em; }
+  .card { background: var(--surface); border: 1px solid var(--border2); border-radius: 14px; padding: 2rem; margin-bottom: 1.25rem; }
+  .card-label { font-family: var(--mono); font-size: 10px; color: var(--accent); letter-spacing: .15em; margin-bottom: 1.5rem; }
+  .input-grid { display: grid; grid-template-columns: 1fr 90px; gap: 12px; margin-bottom: 12px; }
+  .time-grid { display: grid; grid-template-columns: 1fr 1fr 90px; gap: 12px; margin-bottom: 1.5rem; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .1em; }
+  input[type="text"], input[type="number"], select { background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); font-family: var(--mono); font-size: 15px; padding: 11px 14px; outline: none; width: 100%; transition: border-color .15s; }
+  input:focus, select:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+  select option { background: #1e1e2c; }
+  .go { width: 100%; background: var(--accent); color: #0d0d14; border: none; border-radius: 8px; font-family: var(--mono); font-size: 14px; font-weight: 700; padding: 13px; cursor: pointer; letter-spacing: .06em; transition: opacity .15s, transform .1s; }
+  .go:hover { opacity: .85; } .go:active { transform: scale(.98); }
+  .err { font-family: var(--mono); font-size: 12px; color: var(--red); background: rgba(255,107,107,0.08); border: 1px solid rgba(255,107,107,0.2); border-radius: 8px; padding: 10px 14px; margin-bottom: 1rem; display: none; }
+  .result { background: var(--surface); border: 1px solid var(--border2); border-radius: 14px; overflow: hidden; display: none; margin-bottom: 1.25rem; }
+  .result.show { display: block; }
+  .res-header { background: var(--accent-dim); border-bottom: 1px solid rgba(79,255,176,0.15); padding: 1rem 2rem; font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: .1em; }
+  .res-body { padding: 0 2rem; }
+  .res-row { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 0; border-bottom: 1px solid var(--border); gap: 12px; }
+  .res-row:last-child { border-bottom: none; }
+  .res-key { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .08em; white-space: nowrap; }
+  .res-val { font-family: var(--mono); font-size: 22px; font-weight: 700; text-align: right; }
+  .c-green { color: var(--accent); } .c-blue { color: var(--blue); } .c-red { color: var(--red); }
+  .info-box { background: var(--surface); border: 1px solid var(--border2); border-radius: 14px; padding: 1.5rem 2rem; display: none; }
+  .info-box.show { display: block; }
+  .info-title { font-family: var(--mono); font-size: 10px; color: var(--yellow); letter-spacing: .15em; margin-bottom: 1rem; }
+  .info-note { font-family: var(--mono); font-size: 12px; color: var(--muted); line-height: 1.8; }
+  .info-note span { color: var(--text); }
+  footer { margin-top: 3rem; font-family: var(--mono); font-size: 10px; color: var(--muted); text-align: center; letter-spacing: .08em; }
+  @media (max-width: 480px) { .input-grid { grid-template-columns: 1fr; } .time-grid { grid-template-columns: 1fr 1fr; } .time-grid .field:last-child { grid-column: span 2; } }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="container">
+  <header>
+    <div class="tag">US TIMEZONE CONVERTER</div>
+    <h1>City <em>&rarr;</em> ET</h1>
+    <p class="sub">enter city &middot; get eastern + military time</p>
+  </header>
+
+  <div class="card">
+    <div class="card-label">// ENTER DATA</div>
+    <div class="input-grid">
+      <div class="field"><label>CITY</label><input id="cityInput" type="text" placeholder="Los Angeles" autocomplete="off" /></div>
+      <div class="field"><label>STATE</label><input id="stateInput" type="text" placeholder="CA" maxlength="2" autocomplete="off" /></div>
+    </div>
+    <div class="time-grid">
+      <div class="field"><label>HOUR (1-12)</label><input id="hourInput" type="number" min="1" max="12" placeholder="9" /></div>
+      <div class="field"><label>MINUTES</label><input id="minInput" type="number" min="0" max="59" placeholder="30" /></div>
+      <div class="field"><label>AM / PM</label><select id="ampmSel"><option value="AM">AM</option><option value="PM">PM</option></select></div>
+    </div>
+    <button class="go" onclick="lookup()">CHECK &rarr;</button>
+  </div>
+
+  <div class="err" id="errBox"></div>
+
+  <div class="result" id="resultCard">
+    <div class="res-header" id="resHeader"></div>
+    <div class="res-body">
+      <div class="res-row"><span class="res-key">LOCAL TIME</span><span class="res-val c-green" id="rLocal"></span></div>
+      <div class="res-row"><span class="res-key">EASTERN TIME (ET)</span><span class="res-val c-blue" id="rET"></span></div>
+      <div class="res-row"><span class="res-key">MILITARY TIME (ET)</span><span class="res-val c-red" id="rMil"></span></div>
+    </div>
+  </div>
+
+  <div class="info-box" id="infoBox">
+    <div class="info-title">// TIMEZONE INFO</div>
+    <div class="info-note" id="infoNote"></div>
+  </div>
+
+  <footer>offline &middot; no api &middot; github pages ready</footer>
+</div>
+
+<script>
+// City -> timezone database (city|state -> IANA tz)
+const CITY_DB = {
+  "new york|ny":"America/New_York","brooklyn|ny":"America/New_York","queens|ny":"America/New_York",
+  "bronx|ny":"America/New_York","staten island|ny":"America/New_York","buffalo|ny":"America/New_York",
+  "rochester|ny":"America/New_York","yonkers|ny":"America/New_York","syracuse|ny":"America/New_York",
+  "albany|ny":"America/New_York","los angeles|ca":"America/Los_Angeles","san diego|ca":"America/Los_Angeles",
+  "san jose|ca":"America/Los_Angeles","san francisco|ca":"America/Los_Angeles","fresno|ca":"America/Los_Angeles",
+  "sacramento|ca":"America/Los_Angeles","long beach|ca":"America/Los_Angeles","oakland|ca":"America/Los_Angeles",
+  "bakersfield|ca":"America/Los_Angeles","anaheim|ca":"America/Los_Angeles","santa ana|ca":"America/Los_Angeles",
+  "riverside|ca":"America/Los_Angeles","stockton|ca":"America/Los_Angeles","irvine|ca":"America/Los_Angeles",
+  "chula vista|ca":"America/Los_Angeles","fremont|ca":"America/Los_Angeles","san bernardino|ca":"America/Los_Angeles",
+  "modesto|ca":"America/Los_Angeles","fontana|ca":"America/Los_Angeles","oxnard|ca":"America/Los_Angeles",
+  "moreno valley|ca":"America/Los_Angeles","glendale|ca":"America/Los_Angeles","huntington beach|ca":"America/Los_Angeles",
+  "santa clarita|ca":"America/Los_Angeles","garden grove|ca":"America/Los_Angeles","oceanside|ca":"America/Los_Angeles",
+  "rancho cucamonga|ca":"America/Los_Angeles","santa rosa|ca":"America/Los_Angeles","ontario|ca":"America/Los_Angeles",
+  "elk grove|ca":"America/Los_Angeles","corona|ca":"America/Los_Angeles","salinas|ca":"America/Los_Angeles",
+  "pomona|ca":"America/Los_Angeles","torrance|ca":"America/Los_Angeles","pasadena|ca":"America/Los_Angeles",
+  "escondido|ca":"America/Los_Angeles","sunnyvale|ca":"America/Los_Angeles","hayward|ca":"America/Los_Angeles",
+  "chicago|il":"America/Chicago","houston|tx":"America/Chicago","san antonio|tx":"America/Chicago",
+  "dallas|tx":"America/Chicago","austin|tx":"America/Chicago","fort worth|tx":"America/Chicago",
+  "columbus|oh":"America/New_York","indianapolis|in":"America/Indiana/Indianapolis",
+  "charlotte|nc":"America/New_York","san jose|tx":"America/Chicago","jacksonville|fl":"America/New_York",
+  "miami|fl":"America/New_York","tampa|fl":"America/New_York","orlando|fl":"America/New_York",
+  "st. petersburg|fl":"America/New_York","hialeah|fl":"America/New_York","tallahassee|fl":"America/New_York",
+  "fort lauderdale|fl":"America/New_York","port st. lucie|fl":"America/New_York","cape coral|fl":"America/New_York",
+  "pembroke pines|fl":"America/New_York","hollywood|fl":"America/New_York","gainesville|fl":"America/New_York",
+  "miramar|fl":"America/New_York","coral springs|fl":"America/New_York","miami gardens|fl":"America/New_York",
+  "clearwater|fl":"America/New_York","palm bay|fl":"America/New_York","west palm beach|fl":"America/New_York",
+  "pensacola|fl":"America/Chicago","panama city|fl":"America/Chicago","fort walton beach|fl":"America/Chicago",
+  "destin|fl":"America/Chicago","crestview|fl":"America/Chicago","niceville|fl":"America/Chicago",
+  "phoenix|az":"America/Phoenix","tucson|az":"America/Phoenix","mesa|az":"America/Phoenix",
+  "chandler|az":"America/Phoenix","scottsdale|az":"America/Phoenix","glendale|az":"America/Phoenix",
+  "gilbert|az":"America/Phoenix","tempe|az":"America/Phoenix","peoria|az":"America/Phoenix",
+  "surprise|az":"America/Phoenix","yuma|az":"America/Phoenix","avondale|az":"America/Phoenix",
+  "goodyear|az":"America/Phoenix","flagstaff|az":"America/Phoenix","buckeye|az":"America/Phoenix",
+  "philadelphia|pa":"America/New_York","san antonio|pa":"America/New_York","pittsburgh|pa":"America/New_York",
+  "allentown|pa":"America/New_York","erie|pa":"America/New_York","reading|pa":"America/New_York",
+  "scranton|pa":"America/New_York","bethlehem|pa":"America/New_York","lancaster|pa":"America/New_York",
+  "harrisburg|pa":"America/New_York","seattle|wa":"America/Los_Angeles","spokane|wa":"America/Los_Angeles",
+  "tacoma|wa":"America/Los_Angeles","vancouver|wa":"America/Los_Angeles","bellevue|wa":"America/Los_Angeles",
+  "kent|wa":"America/Los_Angeles","everett|wa":"America/Los_Angeles","renton|wa":"America/Los_Angeles",
+  "spokane valley|wa":"America/Los_Angeles","kirkland|wa":"America/Los_Angeles",
+  "denver|co":"America/Denver","colorado springs|co":"America/Denver","aurora|co":"America/Denver",
+  "fort collins|co":"America/Denver","lakewood|co":"America/Denver","thornton|co":"America/Denver",
+  "arvada|co":"America/Denver","westminster|co":"America/Denver","pueblo|co":"America/Denver",
+  "boulder|co":"America/Denver","nashville|tn":"America/Chicago","memphis|tn":"America/Chicago",
+  "knoxville|tn":"America/New_York","chattanooga|tn":"America/New_York","clarksville|tn":"America/Chicago",
+  "murfreesboro|tn":"America/Chicago","franklin|tn":"America/Chicago","jackson|tn":"America/Chicago",
+  "boston|ma":"America/New_York","worcester|ma":"America/New_York","springfield|ma":"America/New_York",
+  "lowell|ma":"America/New_York","cambridge|ma":"America/New_York","new bedford|ma":"America/New_York",
+  "brockton|ma":"America/New_York","quincy|ma":"America/New_York","lynn|ma":"America/New_York",
+  "fall river|ma":"America/New_York","el paso|tx":"America/Denver","amarillo|tx":"America/Chicago",
+  "lubbock|tx":"America/Chicago","garland|tx":"America/Chicago","irving|tx":"America/Chicago",
+  "laredo|tx":"America/Chicago","corpus christi|tx":"America/Chicago","plano|tx":"America/Chicago",
+  "arlington|tx":"America/Chicago","lubbock|tx":"America/Chicago","mcallen|tx":"America/Chicago",
+  "brownsville|tx":"America/Chicago","pasadena|tx":"America/Chicago","mesquite|tx":"America/Chicago",
+  "waco|tx":"America/Chicago","abilene|tx":"America/Chicago","beaumont|tx":"America/Chicago",
+  "grand prairie|tx":"America/Chicago","tyler|tx":"America/Chicago","midland|tx":"America/Chicago",
+  "odessa|tx":"America/Chicago","killeen|tx":"America/Chicago","frisco|tx":"America/Chicago",
+  "mckinney|tx":"America/Chicago","denton|tx":"America/Chicago","wichita falls|tx":"America/Chicago",
+  "portland|or":"America/Los_Angeles","eugene|or":"America/Los_Angeles","salem|or":"America/Los_Angeles",
+  "gresham|or":"America/Los_Angeles","hillsboro|or":"America/Los_Angeles","beaverton|or":"America/Los_Angeles",
+  "bend|or":"America/Los_Angeles","medford|or":"America/Los_Angeles","springfield|or":"America/Los_Angeles",
+  "las vegas|nv":"America/Los_Angeles","henderson|nv":"America/Los_Angeles","reno|nv":"America/Los_Angeles",
+  "north las vegas|nv":"America/Los_Angeles","sparks|nv":"America/Los_Angeles","carson city|nv":"America/Los_Angeles",
+  "louisville|ky":"America/New_York","lexington|ky":"America/New_York","bowling green|ky":"America/Chicago",
+  "owensboro|ky":"America/Chicago","covington|ky":"America/New_York","hopkinsville|ky":"America/Chicago",
+  "baltimore|md":"America/New_York","frederick|md":"America/New_York","rockville|md":"America/New_York",
+  "gaithersburg|md":"America/New_York","bowie|md":"America/New_York","hagerstown|md":"America/New_York",
+  "annapolis|md":"America/New_York","college park|md":"America/New_York","salisbury|md":"America/New_York",
+  "washington|dc":"America/New_York","milwaukee|wi":"America/Chicago","madison|wi":"America/Chicago",
+  "green bay|wi":"America/Chicago","kenosha|wi":"America/Chicago","racine|wi":"America/Chicago",
+  "appleton|wi":"America/Chicago","waukesha|wi":"America/Chicago","oshkosh|wi":"America/Chicago",
+  "eau claire|wi":"America/Chicago","janesville|wi":"America/Chicago",
+  "albuquerque|nm":"America/Denver","las cruces|nm":"America/Denver","rio rancho|nm":"America/Denver",
+  "santa fe|nm":"America/Denver","roswell|nm":"America/Denver","farmington|nm":"America/Denver",
+  "south valley|nm":"America/Denver","clovis|nm":"America/Denver","hobbs|nm":"America/Denver",
+  "atlanta|ga":"America/New_York","columbus|ga":"America/New_York","savannah|ga":"America/New_York",
+  "augusta|ga":"America/New_York","athens|ga":"America/New_York","sandy springs|ga":"America/New_York",
+  "macon|ga":"America/New_York","roswell|ga":"America/New_York","albany|ga":"America/New_York",
+  "minneapolis|mn":"America/Chicago","st. paul|mn":"America/Chicago","rochester|mn":"America/Chicago",
+  "duluth|mn":"America/Chicago","bloomington|mn":"America/Chicago","brooklyn park|mn":"America/Chicago",
+  "plymouth|mn":"America/Chicago","saint cloud|mn":"America/Chicago","eagan|mn":"America/Chicago",
+  "omaha|ne":"America/Chicago","lincoln|ne":"America/Chicago","bellevue|ne":"America/Chicago",
+  "grand island|ne":"America/Chicago","kearney|ne":"America/Chicago","fremont|ne":"America/Chicago",
+  "norfolk|ne":"America/Chicago","hastings|ne":"America/Chicago",
+  "cleveland|oh":"America/New_York","cincinnati|oh":"America/New_York","toledo|oh":"America/New_York",
+  "akron|oh":"America/New_York","dayton|oh":"America/New_York","parma|oh":"America/New_York",
+  "canton|oh":"America/New_York","youngstown|oh":"America/New_York","lorain|oh":"America/New_York",
+  "hamilton|oh":"America/New_York","detroit|mi":"America/Detroit","grand rapids|mi":"America/Detroit",
+  "warren|mi":"America/Detroit","sterling heights|mi":"America/Detroit","ann arbor|mi":"America/Detroit",
+  "lansing|mi":"America/Detroit","flint|mi":"America/Detroit","dearborn|mi":"America/Detroit",
+  "livonia|mi":"America/Detroit","westland|mi":"America/Detroit","troy|mi":"America/Detroit",
+  "kansas city|mo":"America/Chicago","st. louis|mo":"America/Chicago","springfield|mo":"America/Chicago",
+  "columbia|mo":"America/Chicago","independence|mo":"America/Chicago","lee's summit|mo":"America/Chicago",
+  "o'fallon|mo":"America/Chicago","st. joseph|mo":"America/Chicago","st. charles|mo":"America/Chicago",
+  "kansas city|ks":"America/Chicago","wichita|ks":"America/Chicago","overland park|ks":"America/Chicago",
+  "topeka|ks":"America/Chicago","olathe|ks":"America/Chicago","lawrence|ks":"America/Chicago",
+  "new orleans|la":"America/Chicago","baton rouge|la":"America/Chicago","shreveport|la":"America/Chicago",
+  "metairie|la":"America/Chicago","lafayette|la":"America/Chicago","lake charles|la":"America/Chicago",
+  "kenner|la":"America/Chicago","bossier city|la":"America/Chicago","monroe|la":"America/Chicago",
+  "salt lake city|ut":"America/Denver","west valley city|ut":"America/Denver","provo|ut":"America/Denver",
+  "west jordan|ut":"America/Denver","orem|ut":"America/Denver","sandy|ut":"America/Denver",
+  "ogden|ut":"America/Denver","st. george|ut":"America/Denver","layton|ut":"America/Denver",
+  "raleigh|nc":"America/New_York","greensboro|nc":"America/New_York","durham|nc":"America/New_York",
+  "winston-salem|nc":"America/New_York","fayetteville|nc":"America/New_York","cary|nc":"America/New_York",
+  "wilmington|nc":"America/New_York","high point|nc":"America/New_York","concord|nc":"America/New_York",
+  "virginia beach|va":"America/New_York","norfolk|va":"America/New_York","chesapeake|va":"America/New_York",
+  "richmond|va":"America/New_York","newport news|va":"America/New_York","alexandria|va":"America/New_York",
+  "hampton|va":"America/New_York","roanoke|va":"America/New_York","portsmouth|va":"America/New_York",
+  "suffolk|va":"America/New_York","anchorage|ak":"America/Anchorage","fairbanks|ak":"America/Anchorage",
+  "juneau|ak":"America/Anchorage","sitka|ak":"America/Anchorage","ketchikan|ak":"America/Anchorage",
+  "honolulu|hi":"Pacific/Honolulu","pearl city|hi":"Pacific/Honolulu","hilo|hi":"Pacific/Honolulu",
+  "kailua|hi":"Pacific/Honolulu","waipahu|hi":"Pacific/Honolulu","kaneohe|hi":"Pacific/Honolulu",
+  "columbia|sc":"America/New_York","charleston|sc":"America/New_York","north charleston|sc":"America/New_York",
+  "mount pleasant|sc":"America/New_York","rock hill|sc":"America/New_York","greenville|sc":"America/New_York",
+  "boise|id":"America/Denver","nampa|id":"America/Denver","meridian|id":"America/Denver",
+  "idaho falls|id":"America/Denver","pocatello|id":"America/Denver","caldwell|id":"America/Denver",
+  "coeur d'alene|id":"America/Los_Angeles","twin falls|id":"America/Denver",
+  "providence|ri":"America/New_York","cranston|ri":"America/New_York","woonsocket|ri":"America/New_York",
+  "pawtucket|ri":"America/New_York","east providence|ri":"America/New_York",
+  "bridgeport|ct":"America/New_York","new haven|ct":"America/New_York","hartford|ct":"America/New_York",
+  "stamford|ct":"America/New_York","waterbury|ct":"America/New_York","norwalk|ct":"America/New_York",
+  "danbury|ct":"America/New_York","new britain|ct":"America/New_York","west hartford|ct":"America/New_York",
+  "manchester|nh":"America/New_York","nashua|nh":"America/New_York","concord|nh":"America/New_York",
+  "dover|nh":"America/New_York","rochester|nh":"America/New_York","keene|nh":"America/New_York",
+  "burlington|vt":"America/New_York","south burlington|vt":"America/New_York","rutland|vt":"America/New_York",
+  "montpelier|vt":"America/New_York","barre|vt":"America/New_York",
+  "portland|me":"America/New_York","lewiston|me":"America/New_York","bangor|me":"America/New_York",
+  "south portland|me":"America/New_York","auburn|me":"America/New_York",
+  "newark|nj":"America/New_York","jersey city|nj":"America/New_York","paterson|nj":"America/New_York",
+  "elizabeth|nj":"America/New_York","trenton|nj":"America/New_York","camden|nj":"America/New_York",
+  "clifton|nj":"America/New_York","east orange|nj":"America/New_York","passaic|nj":"America/New_York",
+  "dover|de":"America/New_York","wilmington|de":"America/New_York","newark|de":"America/New_York",
+  "birmingham|al":"America/Chicago","montgomery|al":"America/Chicago","huntsville|al":"America/Chicago",
+  "mobile|al":"America/Chicago","tuscaloosa|al":"America/Chicago","hoover|al":"America/Chicago",
+  "dothan|al":"America/Chicago","auburn|al":"America/Chicago","decatur|al":"America/Chicago",
+  "jackson|ms":"America/Chicago","gulfport|ms":"America/Chicago","southaven|ms":"America/Chicago",
+  "hattiesburg|ms":"America/Chicago","biloxi|ms":"America/Chicago","meridian|ms":"America/Chicago",
+  "little rock|ar":"America/Chicago","fort smith|ar":"America/Chicago","fayetteville|ar":"America/Chicago",
+  "springdale|ar":"America/Chicago","jonesboro|ar":"America/Chicago","north little rock|ar":"America/Chicago",
+  "sioux falls|sd":"America/Chicago","rapid city|sd":"America/Denver","aberdeen|sd":"America/Chicago",
+  "brookings|sd":"America/Chicago","watertown|sd":"America/Chicago",
+  "fargo|nd":"America/Chicago","bismarck|nd":"America/Chicago","grand forks|nd":"America/Chicago",
+  "minot|nd":"America/Chicago","west fargo|nd":"America/Chicago",
+  "billings|mt":"America/Denver","missoula|mt":"America/Denver","great falls|mt":"America/Denver",
+  "bozeman|mt":"America/Denver","butte|mt":"America/Denver","helena|mt":"America/Denver",
+  "cheyenne|wy":"America/Denver","casper|wy":"America/Denver","laramie|wy":"America/Denver",
+  "gillette|wy":"America/Denver","rock springs|wy":"America/Denver",
+  "des moines|ia":"America/Chicago","cedar rapids|ia":"America/Chicago","davenport|ia":"America/Chicago",
+  "sioux city|ia":"America/Chicago","iowa city|ia":"America/Chicago","waterloo|ia":"America/Chicago",
+  "richmond|ky":"America/New_York","elizabethtown|ky":"America/Chicago","paducah|ky":"America/Chicago",
+  "evansville|in":"America/Chicago","fort wayne|in":"America/Indiana/Indianapolis",
+  "south bend|in":"America/Indiana/Indianapolis","hammond|in":"America/Chicago",
+  "gary|in":"America/Chicago","muncie|in":"America/Indiana/Indianapolis",
+  "bloomington|in":"America/Indiana/Indianapolis","terre haute|in":"America/Indiana/Indianapolis",
+  "springfield|il":"America/Chicago","rockford|il":"America/Chicago","joliet|il":"America/Chicago",
+  "naperville|il":"America/Chicago","aurora|il":"America/Chicago","peoria|il":"America/Chicago",
+  "elgin|il":"America/Chicago","waukegan|il":"America/Chicago","cicero|il":"America/Chicago",
+  "charleston|wv":"America/New_York","huntington|wv":"America/New_York","morgantown|wv":"America/New_York",
+  "parkersburg|wv":"America/New_York","wheeling|wv":"America/New_York",
+  "columbia|md":"America/New_York","silver spring|md":"America/New_York","waldorf|md":"America/New_York",
+  "glen burnie|md":"America/New_York","ellicott city|md":"America/New_York"
+};
+
+const TZ_LABELS = {
+  "America/New_York": "Eastern (ET)",
+  "America/Chicago": "Central (CT)",
+  "America/Denver": "Mountain (MT)",
+  "America/Los_Angeles": "Pacific (PT)",
+  "America/Phoenix": "Mountain no DST (AZ)",
+  "America/Anchorage": "Alaska (AKT)",
+  "Pacific/Honolulu": "Hawaii (HAT)",
+  "America/Indiana/Indianapolis": "Eastern Indiana (ET)",
+  "America/Detroit": "Eastern Michigan (ET)"
+};
+
+// Returns current UTC offset in hours for a given IANA timezone
+function getOffset(tzId) {
+  const now = new Date();
+  const s = now.toLocaleString('en-US', { timeZone: tzId, timeZoneName: 'shortOffset' });
+  const m = s.match(/GMT([+-]\d+(?::\d+)?)/);
+  if (!m) return 0;
+  const parts = m[1].split(':');
+  return parseInt(parts[0]) + (parts[1] ? (parseInt(parts[0]) >= 0 ? 1 : -1) * parseInt(parts[1]) / 60 : 0);
+}
+
+function formatAMPM(h24, m) {
+  const ampm = h24 >= 12 ? 'PM' : 'AM';
+  let h = h24 % 12;
+  if (h === 0) h = 12;
+  return h + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+}
+
+function showErr(msg) {
+  document.getElementById('errBox').textContent = msg;
+  document.getElementById('errBox').style.display = 'block';
+  document.getElementById('resultCard').classList.remove('show');
+  document.getElementById('infoBox').classList.remove('show');
+}
+
+function lookup() {
+  document.getElementById('errBox').style.display = 'none';
+  document.getElementById('resultCard').classList.remove('show');
+  document.getElementById('infoBox').classList.remove('show');
+
+  const city    = document.getElementById('cityInput').value.trim().toLowerCase();
+  const state   = document.getElementById('stateInput').value.trim().toLowerCase();
+  const hourRaw = parseInt(document.getElementById('hourInput').value);
+  const minRaw  = parseInt(document.getElementById('minInput').value) || 0;
+  const ampm    = document.getElementById('ampmSel').value;
+
+  if (!city)  return showErr('Please enter a city name.');
+  if (!state || state.length !== 2) return showErr('Please enter a 2-letter state code (CA, NY, TX...).');
+  if (isNaN(hourRaw) || hourRaw < 1 || hourRaw > 12) return showErr('Hour must be between 1 and 12.');
+  if (minRaw < 0 || minRaw > 59) return showErr('Minutes must be between 0 and 59.');
+
+  const key = city + '|' + state;
+  const tzId = CITY_DB[key];
+
+  if (!tzId) {
+    return showErr('City not found in database. Try a nearby larger city, or check the spelling.');
+  }
+
+  let hour24 = hourRaw % 12;
+  if (ampm === 'PM') hour24 += 12;
+
+  // Get live offsets from browser (handles DST automatically)
+  const cityOffset = getOffset(tzId);
+  const etOffset   = getOffset('America/New_York');
+
+  // city local -> UTC -> ET
+  const totalMins = hour24 * 60 + minRaw;
+  const utcMins   = totalMins - cityOffset * 60;
+  const etMins    = utcMins + etOffset * 60;
+  const etNorm    = ((etMins % 1440) + 1440) % 1440;
+  const etH24     = Math.floor(etNorm / 60);
+  const etM       = etNorm % 60;
+
+  const localDisplay = formatAMPM(hour24, minRaw);
+  const etDisplay    = formatAMPM(etH24, etM);
+  const milDisplay   = String(etH24).padStart(2, '0') + String(etM).padStart(2, '0');
+  const diffHours    = Math.round(cityOffset - etOffset);
+
+  const displayCity  = city.replace(/\b\w/g, c => c.toUpperCase());
+  const displayState = state.toUpperCase();
+
+  document.getElementById('resHeader').textContent =
+    displayCity + ', ' + displayState + '  —  ' + hourRaw + ':' + String(minRaw).padStart(2, '0') + ' ' + ampm;
+
+  document.getElementById('rLocal').textContent = localDisplay;
+  document.getElementById('rET').textContent    = etDisplay;
+  document.getElementById('rMil').textContent   = milDisplay;
+  document.getElementById('resultCard').classList.add('show');
+
+  // Info note
+  const tzLabel = TZ_LABELS[tzId] || tzId;
+  let note = '<span>' + displayCity + ', ' + displayState + '</span> is in the <span>' + tzLabel + '</span> zone. ';
+  if (diffHours === 0) {
+    note += 'Already on <span>Eastern Time</span> — no conversion needed.';
+  } else if (diffHours < 0) {
+    note += '<span>' + Math.abs(diffHours) + 'h behind ET</span>. To get ET, add ' + Math.abs(diffHours) + 'h.';
+  } else {
+    note += '<span>' + diffHours + 'h ahead of ET</span>. To get ET, subtract ' + diffHours + 'h.';
+  }
+
+  document.getElementById('infoNote').innerHTML = note;
+  document.getElementById('infoBox').classList.add('show');
+}
+
+document.addEventListener('keydown', function(e) { if (e.key === 'Enter') lookup(); });
+</script>
+</body>
+</html>
