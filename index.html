@@ -172,7 +172,7 @@ async function lookup() {
 
   try {
     // Step 1: find city coordinates
-    const searchUrl = `https://secure.geonames.org/searchJSON?q=${encodeURIComponent(city)}&adminCode1=${state}&country=US&maxRows=1&username=${GEONAMES_USER}&featureClass=P&orderby=population`;
+    const searchUrl = `http://api.geonames.org/searchJSON?q=${encodeURIComponent(city)}&adminCode1=${state}&country=US&maxRows=1&username=${GEONAMES_USER}&featureClass=P&orderby=population`;
     const searchRes  = await fetch(searchUrl);
     const searchData = await searchRes.json();
 
@@ -183,7 +183,7 @@ async function lookup() {
     const place = searchData.geonames[0];
 
     // Step 2: get timezone for those coordinates
-    const tzUrl  = `https://secure.geonames.org/timezoneJSON?lat=${place.lat}&lng=${place.lng}&username=${GEONAMES_USER}`;
+    const tzUrl  = `http://api.geonames.org/timezoneJSON?lat=${place.lat}&lng=${place.lng}&username=${GEONAMES_USER}`;
     const tzRes  = await fetch(tzUrl);
     const tzData = await tzRes.json();
 
@@ -198,7 +198,7 @@ async function lookup() {
 
     // Build the reference UTC date correctly
     // Get ET current offset from GeoNames using New York coords (40.71, -74.00)
-    const nyTzUrl  = `https://secure.geonames.org/timezoneJSON?lat=40.71&lng=-74.00&username=${GEONAMES_USER}`;
+    const nyTzUrl  = `http://api.geonames.org/timezoneJSON?lat=40.71&lng=-74.00&username=${GEONAMES_USER}`;
     const nyTzRes  = await fetch(nyTzUrl);
     const nyTzData = await nyTzRes.json();
     const etGmtOffset = nyTzData.gmtOffset; // e.g. -4 during DST, -5 in winter
