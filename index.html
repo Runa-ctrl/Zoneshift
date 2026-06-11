@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>US City Time Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<!-- City timezone database (30k+ cities) -->
+<script src="cities.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d0d14; --surface: #14141e; --surface2: #1e1e2c;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.14);
+    --accent: #4fffb0; --accent-dim: rgba(79,255,176,0.12);
+    --red: #ff6b6b; --blue: #6eb5ff; --yellow: #ffd166;
+    --text: #eeeef5; --muted: #666678;
+    --mono: 'Space Mono', monospace; --sans: 'Syne', sans-serif;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 3rem 1rem 5rem; }
+  .glow { position: fixed; top: -200px; left: 50%; transform: translateX(-50%); width: 700px; height: 500px; background: radial-gradient(ellipse, rgba(79,255,176,0.05) 0%, transparent 70%); pointer-events: none; }
+  .container { width: 100%; max-width: 620px; position: relative; z-index: 1; }
+  header { text-align: center; margin-bottom: 3rem; }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 10px; color: var(--accent); letter-spacing: .18em; border: 1px solid rgba(79,255,176,0.25); padding: 4px 14px; border-radius: 2px; margin-bottom: 1.25rem; }
+  h1 { font-size: clamp(2.2rem, 7vw, 3.8rem); font-weight: 800; line-height: 1; letter-spacing: -.025em; margin-bottom: .6rem; }
+  h1 em { color: var(--accent); font-style: normal; }
+  .sub { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: .06em; }
+  .card { background: var(--surface); border: 1px solid var(--border2); border-radius: 14px; padding: 2rem; margin-bottom: 1.25rem; }
+  .card-label { font-family: var(--mono); font-size: 10px; color: var(--accent); letter-spacing: .15em; margin-bottom: 1.5rem; }
+  .mode-tabs { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+  .mode-tab { flex: 1; font-family: var(--mono); font-size: 11px; padding: 8px; border-radius: 6px; border: 1px solid var(--border2); background: transparent; color: var(--muted); cursor: pointer; letter-spacing: .06em; transition: all .15s; text-align: center; }
+  .mode-tab.active { background: var(--accent-dim); color: var(--accent); border-color: rgba(79,255,176,0.4); }
+  .input-panel { display: none; }
+  .input-panel.active { display: block; }
+  .input-grid { display: grid; grid-template-columns: 1fr 90px; gap: 12px; margin-bottom: 12px; }
+  .input-single { margin-bottom: 12px; }
+  .time-grid { display: grid; grid-template-columns: 1fr 1fr 90px; gap: 12px; margin-bottom: 1.5rem; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .1em; }
+  input[type="text"], input[type="number"], select { background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); font-family: var(--mono); font-size: 15px; padding: 11px 14px; outline: none; width: 100%; transition: border-color .15s; }
+  input:focus, select:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+  select option { background: #1e1e2c; }
+  .go { width: 100%; background: var(--accent); color: #0d0d14; border: none; border-radius: 8px; font-family: var(--mono); font-size: 14px; font-weight: 700; padding: 13px; cursor: pointer; letter-spacing: .06em; transition: opacity .15s, transform .1s; }
+  .go:hover { opacity: .85; } .go:active { transform: scale(.98); }
+  .err { font-family: var(--mono); font-size: 12px; color: var(--red); background: rgba(255,107,107,0.08); border: 1px solid rgba(255,107,107,0.2); border-radius: 8px; padding: 10px 14px; margin-bottom: 1rem; display: none; }
+  .warn { font-family: var(--mono); font-size: 12px; color: var(--yellow); background: rgba(255,209,102,0.08); border: 1px solid rgba(255,209,102,0.25); border-radius: 8px; padding: 12px 14px; margin-bottom: 1rem; display: none; line-height: 1.7; }
+  .result { background: var(--surface); border: 1px solid var(--border2); border-radius: 14px; overflow: hidden; display: none; margin-bottom: 1.25rem; }
+  .result.show { display: block; }
+  .res-header { background: var(--accent-dim); border-bottom: 1px solid rgba(79,255,176,0.15); padding: 1rem 2rem; font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: .1em; }
+  .res-body { padding: 0 2rem; }
+  .res-row { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 0; border-bottom: 1px solid var(--border); gap: 12px; }
+  .res-row:last-child { border-bottom: none; }
+  .res-key { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .08em; white-space: nowrap; }
+  .res-val { font-family: var(--mono); font-size: 22px; font-weight: 700; text-align: right; }
+  .c-green { color: var(--accent); } .c-blue { color: var(--blue); } .c-red { color: var(--red); }
+  .info-box { background: var(--surface); border: 1px solid var(--border2); border-radius: 14px; padding: 1.5rem 2rem; display: none; }
+  .info-box.show { display: block; }
+  .info-title { font-family: var(--mono); font-size: 10px; color: var(--yellow); letter-spacing: .15em; margin-bottom: 1rem; }
+  .info-note { font-family: var(--mono); font-size: 12px; color: var(--muted); line-height: 1.8; }
+  .info-note span { color: var(--text); }
+  footer { margin-top: 3rem; font-family: var(--mono); font-size: 10px; color: var(--muted); text-align: center; letter-spacing: .08em; }
+  @media (max-width: 480px) { .input-grid { grid-template-columns: 1fr; } .time-grid { grid-template-columns: 1fr 1fr; } .time-grid .field:last-child { grid-column: span 2; } }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="container">
+  <header>
+    <div class="tag">US TIMEZONE CONVERTER</div>
+    <h1>City <em>&rarr;</em> ET</h1>
+    <p class="sub">search by city &middot; zip code &middot; state</p>
+  </header>
+
+  <div class="card">
+    <div class="card-label">// SEARCH BY</div>
+    <div class="mode-tabs">
+      <button class="mode-tab active" onclick="setMode('city')">CITY + STATE</button>
+      <button class="mode-tab" onclick="setMode('zip')">ZIP CODE</button>
+      <button class="mode-tab" onclick="setMode('state')">STATE ONLY</button>
+    </div>
+
+    <div class="input-panel active" id="panel-city">
+      <div class="input-grid">
+        <div class="field"><label>CITY</label><input id="cityInput" type="text" placeholder="Los Angeles" autocomplete="off" /></div>
+        <div class="field"><label>STATE</label><input id="stateInput" type="text" placeholder="CA" maxlength="2" autocomplete="off" /></div>
+      </div>
+    </div>
+
+    <div class="input-panel" id="panel-zip">
+      <div class="input-single">
+        <div class="field"><label>ZIP CODE</label><input id="zipInput" type="text" placeholder="90001" maxlength="5" autocomplete="off" /></div>
+      </div>
+    </div>
+
+    <div class="input-panel" id="panel-state">
+      <div class="input-single">
+        <div class="field"><label>STATE (2-LETTER CODE)</label><input id="stateOnlyInput" type="text" placeholder="CA" maxlength="2" autocomplete="off" /></div>
+      </div>
+    </div>
+
+    <div class="time-grid" style="margin-top:12px">
+      <div class="field"><label>HOUR (1-12)</label><input id="hourInput" type="number" min="1" max="12" placeholder="9" /></div>
+      <div class="field"><label>MINUTES</label><input id="minInput" type="number" min="0" max="59" placeholder="30" /></div>
+      <div class="field"><label>AM / PM</label><select id="ampmSel"><option value="AM">AM</option><option value="PM">PM</option></select></div>
+    </div>
+    <button class="go" onclick="lookup()">CHECK &rarr;</button>
+  </div>
+
+  <div class="err" id="errBox"></div>
+  <div class="warn" id="warnBox"></div>
+
+  <div class="result" id="resultCard">
+    <div class="res-header" id="resHeader"></div>
+    <div class="res-body">
+      <div class="res-row"><span class="res-key">LOCAL TIME</span><span class="res-val c-green" id="rLocal"></span></div>
+      <div class="res-row"><span class="res-key">EASTERN TIME (ET)</span><span class="res-val c-blue" id="rET"></span></div>
+      <div class="res-row"><span class="res-key">MILITARY TIME (ET)</span><span class="res-val c-red" id="rMil"></span></div>
+    </div>
+  </div>
+
+  <div class="info-box" id="infoBox">
+    <div class="info-title">// TIMEZONE INFO</div>
+    <div class="info-note" id="infoNote"></div>
+  </div>
+
+  <footer>30,000+ cities &middot; offline &middot; no api &middot; github pages ready</footer>
+</div>
+
+<script>
+let currentMode = 'city';
+
+// ZIP prefix -> timezone
+const ZIP_PREFIX_DB = {
+  "005":"America/New_York","006":"America/New_York","007":"America/New_York","008":"America/New_York","009":"America/New_York","010":"America/New_York","011":"America/New_York","012":"America/New_York","013":"America/New_York","014":"America/New_York","015":"America/New_York","016":"America/New_York","017":"America/New_York","018":"America/New_York","019":"America/New_York","020":"America/New_York","021":"America/New_York","022":"America/New_York","023":"America/New_York","024":"America/New_York","025":"America/New_York","026":"America/New_York","027":"America/New_York","028":"America/New_York","029":"America/New_York","030":"America/New_York","031":"America/New_York","032":"America/New_York","033":"America/New_York","034":"America/New_York","035":"America/New_York","036":"America/New_York","037":"America/New_York","038":"America/New_York","039":"America/New_York","040":"America/New_York","041":"America/New_York","042":"America/New_York","043":"America/New_York","044":"America/New_York","045":"America/New_York","046":"America/New_York","047":"America/New_York","048":"America/New_York","049":"America/New_York","050":"America/New_York","051":"America/New_York","052":"America/New_York","053":"America/New_York","054":"America/New_York","055":"America/New_York","056":"America/New_York","057":"America/New_York","058":"America/New_York","059":"America/New_York","060":"America/New_York","061":"America/New_York","062":"America/New_York","063":"America/New_York","064":"America/New_York","065":"America/New_York","066":"America/New_York","067":"America/New_York","068":"America/New_York","069":"America/New_York","070":"America/New_York","071":"America/New_York","072":"America/New_York","073":"America/New_York","074":"America/New_York","075":"America/New_York","076":"America/New_York","077":"America/New_York","078":"America/New_York","079":"America/New_York","080":"America/New_York","081":"America/New_York","082":"America/New_York","083":"America/New_York","084":"America/New_York","085":"America/New_York","086":"America/New_York","087":"America/New_York","088":"America/New_York","089":"America/New_York","100":"America/New_York","101":"America/New_York","102":"America/New_York","103":"America/New_York","104":"America/New_York","105":"America/New_York","106":"America/New_York","107":"America/New_York","108":"America/New_York","109":"America/New_York","110":"America/New_York","111":"America/New_York","112":"America/New_York","113":"America/New_York","114":"America/New_York","115":"America/New_York","116":"America/New_York","117":"America/New_York","118":"America/New_York","119":"America/New_York","120":"America/New_York","121":"America/New_York","122":"America/New_York","123":"America/New_York","124":"America/New_York","125":"America/New_York","126":"America/New_York","127":"America/New_York","128":"America/New_York","129":"America/New_York","130":"America/New_York","131":"America/New_York","132":"America/New_York","133":"America/New_York","134":"America/New_York","135":"America/New_York","136":"America/New_York","137":"America/New_York","138":"America/New_York","139":"America/New_York","140":"America/New_York","141":"America/New_York","142":"America/New_York","143":"America/New_York","144":"America/New_York","145":"America/New_York","146":"America/New_York","147":"America/New_York","148":"America/New_York","149":"America/New_York","150":"America/New_York","151":"America/New_York","152":"America/New_York","153":"America/New_York","154":"America/New_York","155":"America/New_York","156":"America/New_York","157":"America/New_York","158":"America/New_York","159":"America/New_York","160":"America/New_York","161":"America/New_York","162":"America/New_York","163":"America/New_York","164":"America/New_York","165":"America/New_York","166":"America/New_York","167":"America/New_York","168":"America/New_York","169":"America/New_York","170":"America/New_York","171":"America/New_York","172":"America/New_York","173":"America/New_York","174":"America/New_York","175":"America/New_York","176":"America/New_York","177":"America/New_York","178":"America/New_York","179":"America/New_York","180":"America/New_York","181":"America/New_York","182":"America/New_York","183":"America/New_York","184":"America/New_York","185":"America/New_York","186":"America/New_York","187":"America/New_York","188":"America/New_York","189":"America/New_York","190":"America/New_York","191":"America/New_York","192":"America/New_York","193":"America/New_York","194":"America/New_York","195":"America/New_York","196":"America/New_York","197":"America/New_York","198":"America/New_York","199":"America/New_York","200":"America/New_York","201":"America/New_York","202":"America/New_York","203":"America/New_York","204":"America/New_York","205":"America/New_York","206":"America/New_York","207":"America/New_York","208":"America/New_York","209":"America/New_York","210":"America/New_York","211":"America/New_York","212":"America/New_York","213":"America/New_York","214":"America/New_York","215":"America/New_York","216":"America/New_York","217":"America/New_York","218":"America/New_York","219":"America/New_York","220":"America/New_York","221":"America/New_York","222":"America/New_York","223":"America/New_York","224":"America/New_York","225":"America/New_York","226":"America/New_York","227":"America/New_York","228":"America/New_York","229":"America/New_York","230":"America/New_York","231":"America/New_York","232":"America/New_York","233":"America/New_York","234":"America/New_York","235":"America/New_York","236":"America/New_York","237":"America/New_York","238":"America/New_York","239":"America/New_York","240":"America/New_York","241":"America/New_York","242":"America/New_York","243":"America/New_York","244":"America/New_York","245":"America/New_York","246":"America/New_York","247":"America/New_York","248":"America/New_York","249":"America/New_York","250":"America/New_York","251":"America/New_York","252":"America/New_York","253":"America/New_York","254":"America/New_York","255":"America/New_York","256":"America/New_York","257":"America/New_York","258":"America/New_York","259":"America/New_York","260":"America/New_York","261":"America/New_York","262":"America/New_York","263":"America/New_York","264":"America/New_York","265":"America/New_York","266":"America/New_York","267":"America/New_York","268":"America/New_York","270":"America/New_York","271":"America/New_York","272":"America/New_York","273":"America/New_York","274":"America/New_York","275":"America/New_York","276":"America/New_York","277":"America/New_York","278":"America/New_York","279":"America/New_York","280":"America/New_York","281":"America/New_York","282":"America/New_York","283":"America/New_York","284":"America/New_York","285":"America/New_York","286":"America/New_York","287":"America/New_York","288":"America/New_York","289":"America/New_York","290":"America/New_York","291":"America/New_York","292":"America/New_York","293":"America/New_York","294":"America/New_York","295":"America/New_York","296":"America/New_York","297":"America/New_York","298":"America/New_York","299":"America/New_York","300":"America/New_York","301":"America/New_York","302":"America/New_York","303":"America/New_York","304":"America/New_York","305":"America/New_York","306":"America/New_York","307":"America/New_York","308":"America/New_York","309":"America/New_York","310":"America/New_York","311":"America/New_York","312":"America/New_York","313":"America/New_York","314":"America/New_York","315":"America/New_York","316":"America/New_York","317":"America/New_York","318":"America/Chicago","319":"America/Chicago","320":"America/New_York","321":"America/New_York","322":"America/New_York","323":"America/New_York","324":"America/New_York","325":"America/New_York","326":"America/New_York","327":"America/New_York","328":"America/New_York","329":"America/New_York","330":"America/New_York","331":"America/New_York","332":"America/New_York","333":"America/New_York","334":"America/New_York","335":"America/New_York","336":"America/New_York","337":"America/New_York","338":"America/New_York","339":"America/New_York","340":"America/New_York","341":"America/New_York","342":"America/New_York","344":"America/New_York","346":"America/New_York","347":"America/New_York","349":"America/New_York","350":"America/Chicago","351":"America/Chicago","352":"America/Chicago","353":"America/Chicago","354":"America/Chicago","355":"America/Chicago","356":"America/Chicago","357":"America/Chicago","358":"America/Chicago","359":"America/Chicago","360":"America/Chicago","361":"America/Chicago","362":"America/Chicago","363":"America/Chicago","364":"America/Chicago","365":"America/Chicago","366":"America/Chicago","367":"America/Chicago","368":"America/Chicago","369":"America/Chicago","370":"America/Chicago","371":"America/Chicago","372":"America/Chicago","373":"America/New_York","374":"America/New_York","375":"America/Chicago","376":"America/Chicago","377":"America/New_York","378":"America/New_York","379":"America/New_York","380":"America/Chicago","381":"America/Chicago","382":"America/Chicago","383":"America/Chicago","384":"America/Chicago","385":"America/Chicago","386":"America/Chicago","387":"America/Chicago","388":"America/Chicago","389":"America/Chicago","390":"America/Chicago","391":"America/Chicago","392":"America/Chicago","393":"America/Chicago","394":"America/Chicago","395":"America/Chicago","396":"America/Chicago","397":"America/Chicago","398":"America/New_York","399":"America/New_York","400":"America/New_York","401":"America/New_York","402":"America/New_York","403":"America/New_York","404":"America/New_York","405":"America/New_York","406":"America/New_York","407":"America/New_York","408":"America/New_York","409":"America/New_York","410":"America/New_York","411":"America/New_York","412":"America/New_York","413":"America/New_York","414":"America/New_York","415":"America/New_York","416":"America/New_York","417":"America/New_York","418":"America/New_York","420":"America/Chicago","421":"America/Chicago","422":"America/Chicago","423":"America/Chicago","424":"America/Chicago","425":"America/Chicago","426":"America/Chicago","427":"America/Chicago","430":"America/New_York","431":"America/New_York","432":"America/New_York","433":"America/New_York","434":"America/New_York","435":"America/New_York","436":"America/New_York","437":"America/New_York","438":"America/New_York","439":"America/New_York","440":"America/New_York","441":"America/New_York","442":"America/New_York","443":"America/New_York","444":"America/New_York","445":"America/New_York","446":"America/New_York","447":"America/New_York","448":"America/New_York","449":"America/New_York","450":"America/New_York","451":"America/New_York","452":"America/New_York","453":"America/New_York","454":"America/New_York","455":"America/New_York","456":"America/New_York","457":"America/New_York","458":"America/New_York","460":"America/Indiana/Indianapolis","461":"America/Indiana/Indianapolis","462":"America/Indiana/Indianapolis","463":"America/Indiana/Indianapolis","464":"America/Indiana/Indianapolis","465":"America/Indiana/Indianapolis","466":"America/Indiana/Indianapolis","467":"America/Indiana/Indianapolis","468":"America/Indiana/Indianapolis","469":"America/Indiana/Indianapolis","470":"America/Indiana/Indianapolis","471":"America/Indiana/Indianapolis","472":"America/Indiana/Indianapolis","473":"America/Indiana/Indianapolis","474":"America/Indiana/Indianapolis","475":"America/Indiana/Indianapolis","476":"America/Chicago","477":"America/Chicago","478":"America/Indiana/Indianapolis","479":"America/Indiana/Indianapolis","480":"America/Detroit","481":"America/Detroit","482":"America/Detroit","483":"America/Detroit","484":"America/Detroit","485":"America/Detroit","486":"America/Detroit","487":"America/Detroit","488":"America/Detroit","489":"America/Detroit","490":"America/Detroit","491":"America/Detroit","492":"America/Detroit","493":"America/Chicago","494":"America/Chicago","495":"America/Chicago","496":"America/Chicago","497":"America/Chicago","498":"America/Detroit","499":"America/Detroit","500":"America/Chicago","501":"America/Chicago","502":"America/Chicago","503":"America/Chicago","504":"America/Chicago","505":"America/Chicago","506":"America/Chicago","507":"America/Chicago","508":"America/Chicago","509":"America/Chicago","510":"America/Chicago","511":"America/Chicago","512":"America/Chicago","513":"America/Chicago","514":"America/Chicago","515":"America/Chicago","516":"America/Chicago","520":"America/Chicago","521":"America/Chicago","522":"America/Chicago","523":"America/Chicago","524":"America/Chicago","525":"America/Chicago","526":"America/Chicago","527":"America/Chicago","528":"America/Chicago","530":"America/Chicago","531":"America/Chicago","532":"America/Chicago","534":"America/Chicago","535":"America/Chicago","537":"America/Chicago","538":"America/Chicago","539":"America/Chicago","540":"America/Chicago","541":"America/Chicago","542":"America/Chicago","543":"America/Chicago","544":"America/Chicago","545":"America/Chicago","546":"America/Chicago","547":"America/Chicago","548":"America/Chicago","549":"America/Chicago","550":"America/Chicago","551":"America/Chicago","553":"America/Chicago","554":"America/Chicago","555":"America/Chicago","556":"America/Chicago","557":"America/Chicago","558":"America/Chicago","559":"America/Chicago","560":"America/Chicago","561":"America/Chicago","562":"America/Chicago","563":"America/Chicago","564":"America/Chicago","565":"America/Chicago","566":"America/Chicago","567":"America/Chicago","570":"America/Chicago","571":"America/Chicago","572":"America/Chicago","573":"America/Chicago","574":"America/Chicago","575":"America/Chicago","576":"America/Chicago","577":"America/Chicago","580":"America/Chicago","581":"America/Chicago","582":"America/Chicago","583":"America/Chicago","584":"America/Chicago","585":"America/Chicago","586":"America/Chicago","587":"America/Chicago","588":"America/Chicago","590":"America/Denver","591":"America/Denver","592":"America/Denver","593":"America/Denver","594":"America/Denver","595":"America/Denver","596":"America/Denver","597":"America/Denver","598":"America/Denver","599":"America/Denver","600":"America/Chicago","601":"America/Chicago","602":"America/Chicago","603":"America/Chicago","604":"America/Chicago","605":"America/Chicago","606":"America/Chicago","607":"America/Chicago","608":"America/Chicago","609":"America/Chicago","610":"America/Chicago","611":"America/Chicago","612":"America/Chicago","613":"America/Chicago","614":"America/Chicago","615":"America/Chicago","616":"America/Chicago","617":"America/Chicago","618":"America/Chicago","619":"America/Chicago","620":"America/Chicago","621":"America/Chicago","622":"America/Chicago","623":"America/Chicago","624":"America/Chicago","625":"America/Chicago","626":"America/Chicago","627":"America/Chicago","628":"America/Chicago","629":"America/Chicago","630":"America/Chicago","631":"America/Chicago","633":"America/Chicago","634":"America/Chicago","635":"America/Chicago","636":"America/Chicago","637":"America/Chicago","638":"America/Chicago","639":"America/Chicago","640":"America/Chicago","641":"America/Chicago","644":"America/Chicago","645":"America/Chicago","646":"America/Chicago","647":"America/Chicago","648":"America/Chicago","649":"America/Chicago","650":"America/Chicago","651":"America/Chicago","652":"America/Chicago","653":"America/Chicago","654":"America/Chicago","655":"America/Chicago","656":"America/Chicago","657":"America/Chicago","658":"America/Chicago","660":"America/Chicago","661":"America/Chicago","662":"America/Chicago","664":"America/Chicago","665":"America/Chicago","666":"America/Chicago","667":"America/Chicago","668":"America/Chicago","669":"America/Chicago","670":"America/Chicago","671":"America/Chicago","672":"America/Chicago","673":"America/Chicago","674":"America/Chicago","675":"America/Chicago","676":"America/Chicago","677":"America/Chicago","678":"America/Chicago","679":"America/Chicago","680":"America/Chicago","681":"America/Chicago","683":"America/Chicago","684":"America/Chicago","685":"America/Chicago","686":"America/Chicago","687":"America/Chicago","688":"America/Chicago","689":"America/Chicago","690":"America/Chicago","691":"America/Chicago","692":"America/Chicago","693":"America/Chicago","700":"America/Chicago","701":"America/Chicago","703":"America/Chicago","704":"America/Chicago","705":"America/Chicago","706":"America/Chicago","707":"America/Chicago","708":"America/Chicago","710":"America/Chicago","711":"America/Chicago","712":"America/Chicago","713":"America/Chicago","714":"America/Chicago","716":"America/Chicago","717":"America/Chicago","718":"America/Chicago","719":"America/Chicago","720":"America/Chicago","721":"America/Chicago","722":"America/Chicago","723":"America/Chicago","724":"America/Chicago","725":"America/Chicago","726":"America/Chicago","727":"America/Chicago","728":"America/Chicago","729":"America/Chicago","730":"America/Chicago","731":"America/Chicago","734":"America/Chicago","735":"America/Chicago","736":"America/Chicago","737":"America/Chicago","738":"America/Chicago","739":"America/Chicago","740":"America/Chicago","741":"America/Chicago","743":"America/Chicago","744":"America/Chicago","745":"America/Chicago","746":"America/Chicago","747":"America/Chicago","748":"America/Chicago","749":"America/Chicago","750":"America/Chicago","751":"America/Chicago","752":"America/Chicago","753":"America/Chicago","754":"America/Chicago","755":"America/Chicago","756":"America/Chicago","757":"America/Chicago","758":"America/Chicago","759":"America/Chicago","760":"America/Chicago","761":"America/Chicago","762":"America/Chicago","763":"America/Chicago","764":"America/Chicago","765":"America/Chicago","766":"America/Chicago","767":"America/Chicago","768":"America/Chicago","769":"America/Chicago","770":"America/Chicago","771":"America/Chicago","772":"America/Chicago","773":"America/Chicago","774":"America/Chicago","775":"America/Chicago","776":"America/Chicago","777":"America/Chicago","778":"America/Chicago","779":"America/Chicago","780":"America/Chicago","781":"America/Chicago","782":"America/Chicago","783":"America/Chicago","784":"America/Chicago","785":"America/Chicago","786":"America/Chicago","787":"America/Chicago","788":"America/Chicago","789":"America/Chicago","790":"America/Chicago","791":"America/Chicago","792":"America/Chicago","793":"America/Chicago","794":"America/Chicago","795":"America/Chicago","796":"America/Chicago","797":"America/Chicago","798":"America/Denver","799":"America/Denver","800":"America/Denver","801":"America/Denver","802":"America/Denver","803":"America/Denver","804":"America/Denver","805":"America/Denver","806":"America/Denver","807":"America/Denver","808":"America/Denver","809":"America/Denver","810":"America/Denver","811":"America/Denver","812":"America/Denver","813":"America/Denver","814":"America/Denver","815":"America/Denver","816":"America/Denver","817":"America/Denver","818":"America/Denver","819":"America/Denver","820":"America/Denver","821":"America/Denver","822":"America/Denver","823":"America/Denver","824":"America/Denver","825":"America/Denver","826":"America/Denver","827":"America/Denver","828":"America/Denver","829":"America/Denver","830":"America/Denver","831":"America/Denver","832":"America/Denver","833":"America/Denver","834":"America/Denver","835":"America/Denver","836":"America/Denver","837":"America/Denver","838":"America/Los_Angeles","840":"America/Denver","841":"America/Denver","842":"America/Denver","843":"America/Denver","844":"America/Denver","845":"America/Denver","846":"America/Denver","847":"America/Denver","850":"America/Phoenix","851":"America/Phoenix","852":"America/Phoenix","853":"America/Phoenix","855":"America/Phoenix","856":"America/Phoenix","857":"America/Phoenix","859":"America/Phoenix","860":"America/Phoenix","863":"America/Phoenix","864":"America/Phoenix","865":"America/Phoenix","870":"America/Denver","871":"America/Denver","872":"America/Denver","873":"America/Denver","874":"America/Denver","875":"America/Denver","876":"America/Denver","877":"America/Denver","878":"America/Denver","879":"America/Denver","880":"America/Denver","881":"America/Denver","882":"America/Denver","883":"America/Denver","884":"America/Denver","885":"America/Denver","889":"America/Los_Angeles","890":"America/Los_Angeles","891":"America/Los_Angeles","893":"America/Los_Angeles","894":"America/Los_Angeles","895":"America/Los_Angeles","896":"America/Los_Angeles","897":"America/Los_Angeles","898":"America/Los_Angeles","900":"America/Los_Angeles","901":"America/Los_Angeles","902":"America/Los_Angeles","903":"America/Los_Angeles","904":"America/Los_Angeles","905":"America/Los_Angeles","906":"America/Los_Angeles","907":"America/Los_Angeles","908":"America/Los_Angeles","909":"America/Los_Angeles","910":"America/Los_Angeles","911":"America/Los_Angeles","912":"America/Los_Angeles","913":"America/Los_Angeles","914":"America/Los_Angeles","915":"America/Los_Angeles","916":"America/Los_Angeles","917":"America/Los_Angeles","918":"America/Los_Angeles","919":"America/Los_Angeles","920":"America/Los_Angeles","921":"America/Los_Angeles","922":"America/Los_Angeles","923":"America/Los_Angeles","924":"America/Los_Angeles","925":"America/Los_Angeles","926":"America/Los_Angeles","927":"America/Los_Angeles","928":"America/Los_Angeles","930":"America/Los_Angeles","931":"America/Los_Angeles","932":"America/Los_Angeles","933":"America/Los_Angeles","934":"America/Los_Angeles","935":"America/Los_Angeles","936":"America/Los_Angeles","937":"America/Los_Angeles","938":"America/Los_Angeles","939":"America/Los_Angeles","940":"America/Los_Angeles","941":"America/Los_Angeles","942":"America/Los_Angeles","943":"America/Los_Angeles","944":"America/Los_Angeles","945":"America/Los_Angeles","946":"America/Los_Angeles","947":"America/Los_Angeles","948":"America/Los_Angeles","949":"America/Los_Angeles","950":"America/Los_Angeles","951":"America/Los_Angeles","952":"America/Los_Angeles","953":"America/Los_Angeles","954":"America/Los_Angeles","955":"America/Los_Angeles","956":"America/Los_Angeles","957":"America/Los_Angeles","958":"America/Los_Angeles","959":"America/Los_Angeles","960":"America/Los_Angeles","961":"America/Los_Angeles","967":"Pacific/Honolulu","968":"Pacific/Honolulu","970":"America/Los_Angeles","971":"America/Los_Angeles","972":"America/Los_Angeles","973":"America/Los_Angeles","974":"America/Los_Angeles","975":"America/Los_Angeles","976":"America/Los_Angeles","977":"America/Los_Angeles","978":"America/Los_Angeles","979":"America/Los_Angeles","980":"America/Los_Angeles","981":"America/Los_Angeles","982":"America/Los_Angeles","983":"America/Los_Angeles","984":"America/Los_Angeles","985":"America/Los_Angeles","986":"America/Los_Angeles","988":"America/Los_Angeles","989":"America/Los_Angeles","990":"America/Los_Angeles","991":"America/Los_Angeles","992":"America/Los_Angeles","993":"America/Los_Angeles","994":"America/Los_Angeles","995":"America/Anchorage","996":"America/Anchorage","997":"America/Anchorage","998":"America/Anchorage","999":"America/Anchorage"
+};
+
+const STATE_DB = {
+  "AL":{tz:"America/Chicago",multi:false},"AK":{tz:"America/Anchorage",multi:false},"AZ":{tz:"America/Phoenix",multi:false},"AR":{tz:"America/Chicago",multi:false},"CA":{tz:"America/Los_Angeles",multi:false},"CO":{tz:"America/Denver",multi:false},"CT":{tz:"America/New_York",multi:false},"DE":{tz:"America/New_York",multi:false},"DC":{tz:"America/New_York",multi:false},
+  "FL":{multi:true,zones:["America/New_York","America/Chicago"],note:"Most of Florida is Eastern (ET). The western panhandle (Pensacola, Panama City, Fort Walton Beach) is Central (CT). Enter the city for exact results."},
+  "GA":{tz:"America/New_York",multi:false},"HI":{tz:"Pacific/Honolulu",multi:false},
+  "ID":{multi:true,zones:["America/Denver","America/Los_Angeles"],note:"Most of Idaho is Mountain (MT). The northern panhandle (Coeur d'Alene, Sandpoint) is Pacific (PT). Enter the city for exact results."},
+  "IL":{tz:"America/Chicago",multi:false},
+  "IN":{multi:true,zones:["America/Indiana/Indianapolis","America/Chicago"],note:"Most of Indiana is Eastern (ET). The NW corner (Gary, Hammond) and SW corner (Evansville) are Central (CT). Enter the city for exact results."},
+  "IA":{tz:"America/Chicago",multi:false},
+  "KS":{multi:true,zones:["America/Chicago","America/Denver"],note:"Most of Kansas is Central (CT). Sherman County (Goodland) in the far west is Mountain (MT). Enter the city for exact results."},
+  "KY":{multi:true,zones:["America/New_York","America/Chicago"],note:"Eastern and Central Kentucky is Eastern (ET). Western Kentucky (Bowling Green, Owensboro, Paducah) is Central (CT). Enter the city for exact results."},
+  "LA":{tz:"America/Chicago",multi:false},"ME":{tz:"America/New_York",multi:false},"MD":{tz:"America/New_York",multi:false},"MA":{tz:"America/New_York",multi:false},
+  "MI":{multi:true,zones:["America/Detroit","America/Chicago"],note:"Most of Michigan is Eastern (ET). Four Upper Peninsula counties (Gogebic, Iron, Dickinson, Menominee) are Central (CT). Enter the city for exact results."},
+  "MN":{tz:"America/Chicago",multi:false},"MS":{tz:"America/Chicago",multi:false},"MO":{tz:"America/Chicago",multi:false},"MT":{tz:"America/Denver",multi:false},
+  "NE":{multi:true,zones:["America/Chicago","America/Denver"],note:"Most of Nebraska is Central (CT). The western panhandle (Scottsbluff, Alliance) is Mountain (MT). Enter the city for exact results."},
+  "NV":{tz:"America/Los_Angeles",multi:false},"NH":{tz:"America/New_York",multi:false},"NJ":{tz:"America/New_York",multi:false},"NM":{tz:"America/Denver",multi:false},"NY":{tz:"America/New_York",multi:false},"NC":{tz:"America/New_York",multi:false},
+  "ND":{multi:true,zones:["America/Chicago","America/Denver"],note:"Most of North Dakota is Central (CT). The SW corner (Bowman, Slope counties) is Mountain (MT). Enter the city for exact results."},
+  "OH":{tz:"America/New_York",multi:false},"OK":{tz:"America/Chicago",multi:false},
+  "OR":{multi:true,zones:["America/Los_Angeles","America/Denver"],note:"Most of Oregon is Pacific (PT). Malheur County in the far east (Ontario, Jordan Valley) is Mountain (MT). Enter the city for exact results."},
+  "PA":{tz:"America/New_York",multi:false},"RI":{tz:"America/New_York",multi:false},"SC":{tz:"America/New_York",multi:false},
+  "SD":{multi:true,zones:["America/Chicago","America/Denver"],note:"Eastern South Dakota (Sioux Falls, Aberdeen) is Central (CT). Western South Dakota (Rapid City, the Black Hills) is Mountain (MT). Enter the city for exact results."},
+  "TN":{multi:true,zones:["America/Chicago","America/New_York"],note:"Most of Tennessee is Central (CT). Eastern Tennessee (Knoxville, Chattanooga, Johnson City) is Eastern (ET). Enter the city for exact results."},
+  "TX":{multi:true,zones:["America/Chicago","America/Denver"],note:"Almost all of Texas is Central (CT). El Paso and Hudspeth County in the far west are Mountain (MT). Enter the city for exact results."},
+  "UT":{tz:"America/Denver",multi:false},"VT":{tz:"America/New_York",multi:false},"VA":{tz:"America/New_York",multi:false},"WA":{tz:"America/Los_Angeles",multi:false},"WV":{tz:"America/New_York",multi:false},"WI":{tz:"America/Chicago",multi:false},"WY":{tz:"America/Denver",multi:false}
+};
+
+const TZ_LABELS = {
+  "America/New_York":"Eastern (ET)","America/Chicago":"Central (CT)",
+  "America/Denver":"Mountain (MT)","America/Los_Angeles":"Pacific (PT)",
+  "America/Phoenix":"Mountain no DST (AZ)","America/Anchorage":"Alaska (AKT)",
+  "Pacific/Honolulu":"Hawaii (HAT)","America/Indiana/Indianapolis":"Eastern Indiana (ET)",
+  "America/Detroit":"Eastern Michigan (ET)","America/Puerto_Rico":"Atlantic (PR)"
+};
+
+function setMode(m) {
+  currentMode = m;
+  document.querySelectorAll('.mode-tab').forEach((t,i) => {
+    t.classList.toggle('active', ['city','zip','state'][i] === m);
+  });
+  document.querySelectorAll('.input-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + m).classList.add('active');
+  clearResults();
+}
+
+function clearResults() {
+  document.getElementById('errBox').style.display = 'none';
+  document.getElementById('warnBox').style.display = 'none';
+  document.getElementById('resultCard').classList.remove('show');
+  document.getElementById('infoBox').classList.remove('show');
+}
+
+function getOffset(tzId) {
+  const s = new Date().toLocaleString('en-US', { timeZone: tzId, timeZoneName: 'shortOffset' });
+  const m = s.match(/GMT([+-]\d+(?::\d+)?)/);
+  if (!m) return 0;
+  const parts = m[1].split(':');
+  const h = parseInt(parts[0]);
+  return h + (parts[1] ? (h >= 0 ? 1 : -1) * parseInt(parts[1]) / 60 : 0);
+}
+
+function formatAMPM(h24, m) {
+  const ap = h24 >= 12 ? 'PM' : 'AM';
+  let h = h24 % 12; if (h === 0) h = 12;
+  return h + ':' + String(m).padStart(2,'0') + ' ' + ap;
+}
+
+function showErr(msg) {
+  document.getElementById('errBox').textContent = msg;
+  document.getElementById('errBox').style.display = 'block';
+  document.getElementById('warnBox').style.display = 'none';
+  document.getElementById('resultCard').classList.remove('show');
+  document.getElementById('infoBox').classList.remove('show');
+}
+
+function showWarn(msg) {
+  document.getElementById('warnBox').innerHTML = msg;
+  document.getElementById('warnBox').style.display = 'block';
+  document.getElementById('resultCard').classList.remove('show');
+  document.getElementById('infoBox').classList.remove('show');
+}
+
+function displayResult(tzId, label, hourRaw, minRaw, ampm, hour24) {
+  const cityOffset = getOffset(tzId);
+  const etOffset   = getOffset('America/New_York');
+  const totalMins  = hour24 * 60 + minRaw;
+  const utcMins    = totalMins - cityOffset * 60;
+  const etMins     = utcMins + etOffset * 60;
+  const etNorm     = ((etMins % 1440) + 1440) % 1440;
+  const etH24      = Math.floor(etNorm / 60);
+  const etM        = etNorm % 60;
+  const diffHours  = Math.round(cityOffset - etOffset);
+
+  document.getElementById('rLocal').textContent = formatAMPM(hour24, minRaw);
+  document.getElementById('rET').textContent    = formatAMPM(etH24, etM);
+  document.getElementById('rMil').textContent   = String(etH24).padStart(2,'0') + String(etM).padStart(2,'0');
+  document.getElementById('resHeader').textContent = label + '  —  ' + hourRaw + ':' + String(minRaw).padStart(2,'0') + ' ' + ampm;
+  document.getElementById('resultCard').classList.add('show');
+
+  const tzLabel = TZ_LABELS[tzId] || tzId;
+  let note = 'Timezone: <span>' + tzLabel + '</span>. ';
+  if (diffHours === 0) {
+    note += 'Already on <span>Eastern Time</span> — no conversion needed.';
+  } else if (diffHours < 0) {
+    note += '<span>' + Math.abs(diffHours) + 'h behind ET</span>. To get ET, add ' + Math.abs(diffHours) + 'h.';
+  } else {
+    note += '<span>' + diffHours + 'h ahead of ET</span>. To get ET, subtract ' + diffHours + 'h.';
+  }
+  document.getElementById('infoNote').innerHTML = note;
+  document.getElementById('infoBox').classList.add('show');
+}
+
+function lookup() {
+  clearResults();
+  const hourRaw = parseInt(document.getElementById('hourInput').value);
+  const minRaw  = parseInt(document.getElementById('minInput').value) || 0;
+  const ampm    = document.getElementById('ampmSel').value;
+  if (isNaN(hourRaw) || hourRaw < 1 || hourRaw > 12) return showErr('Hour must be between 1 and 12.');
+  if (minRaw < 0 || minRaw > 59) return showErr('Minutes must be between 0 and 59.');
+  let hour24 = hourRaw % 12;
+  if (ampm === 'PM') hour24 += 12;
+
+  if (currentMode === 'city') {
+    const city  = document.getElementById('cityInput').value.trim().toLowerCase();
+    const state = document.getElementById('stateInput').value.trim().toUpperCase();
+    if (!city) return showErr('Please enter a city name.');
+    if (!state || state.length !== 2) return showErr('Please enter a 2-letter state code.');
+    const key  = city + '|' + state;
+    const tzId = CITIES_DB[key];
+    if (!tzId) return showErr('City not found. Check spelling, or try State Only mode.');
+    const label = city.replace(/\b\w/g,c=>c.toUpperCase()) + ', ' + state;
+    displayResult(tzId, label, hourRaw, minRaw, ampm, hour24);
+
+  } else if (currentMode === 'zip') {
+    const zip = document.getElementById('zipInput').value.trim();
+    if (!zip || zip.length !== 5 || isNaN(zip)) return showErr('Please enter a valid 5-digit ZIP code.');
+    const prefix = zip.substring(0, 3);
+    const tzId = ZIP_PREFIX_DB[prefix];
+    if (!tzId) return showErr('ZIP code not recognized.');
+    displayResult(tzId, 'ZIP ' + zip, hourRaw, minRaw, ampm, hour24);
+
+  } else if (currentMode === 'state') {
+    const state = document.getElementById('stateOnlyInput').value.trim().toUpperCase();
+    if (!state || state.length !== 2) return showErr('Please enter a 2-letter state code.');
+    const info = STATE_DB[state];
+    if (!info) return showErr('State not found. Use 2-letter code: CA, NY, TX...');
+    if (info.multi) {
+      const zoneNames = info.zones.map(z => '<strong>' + (TZ_LABELS[z]||z) + '</strong>').join(' or ');
+      showWarn('⚠ ' + state + ' has multiple timezones: ' + zoneNames + '.<br>' + info.note);
+    } else {
+      displayResult(info.tz, state, hourRaw, minRaw, ampm, hour24);
+    }
+  }
+}
+
+document.addEventListener('keydown', function(e) { if (e.key === 'Enter') lookup(); });
+</script>
+</body>
+</html>
