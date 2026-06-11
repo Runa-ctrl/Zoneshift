@@ -261,7 +261,7 @@ function lookup() {
     const state = document.getElementById('stateInput').value.trim().toUpperCase();
     if (!city) return showErr('Please enter a city name.');
     if (!state || state.length !== 2) return showErr('Please enter a 2-letter state code.');
-    const city2 = city.replace(/\band\b/gi, ' ').replace(/&/g, ' ').replace(/\s+/g, ' ').trim();
+    const city2 = city.replace(/&/g, ' ').replace(/\s+/g, ' ').trim();
     const tzId = CITIES_DB[key];
     if (!tzId) return showErr('City not found. Check spelling, or try State Only mode.');
     const label = city.replace(/\b\w/g,c=>c.toUpperCase()) + ', ' + state;
